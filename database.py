@@ -10,19 +10,19 @@ def get_user_by_email(email):
         return None
 
 def add_user(email, password):
-    """Add new user to DB with is_verified=False"""
     try:
         response = supabase.table("users").insert({
             "email": email,
-            "password": password,  # Ideally hash this before storing
+            "password": password,
             "is_verified": False
         }).execute()
+        print("Supabase response:", response)
         if response.data:
             return response.data[0]
         return None
     except Exception as e:
         print(f"[DB ERROR] add_user: {e}")
-        return None
+        raise  # Re-raise so Flask logs full traceback
 
 def mark_verified(email):
     """Set user.is_verified=True"""
