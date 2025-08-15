@@ -1,5 +1,6 @@
 Flask==2.3.3
 flask-cors==3.0.10
+flask-limiter==3.5.0
 PyPDF2==3.0.1
 pdf2docx==0.5.6
 PyMuPDF==1.23.6
