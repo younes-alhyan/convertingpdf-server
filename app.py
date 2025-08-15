@@ -1,7 +1,7 @@
 import os
 import auth
 import tools  
-import databse
+import database
 from flask import request
 from functools import wraps
 from flask_mail import Mail
