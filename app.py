@@ -1,102 +1,140 @@
-from flask import Flask, request, send_file, jsonify
+import os
+import auth
+import tools  
+import supabase
+from flask import request
+from functools import wraps
+from flask_mail import Mail
+from dotenv import load_dotenv
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-import fitz  # PyMuPDF
-import zipfile
-import shutil
-import os
-import uuid
-from PyPDF2 import PdfMerger, PdfReader, PdfWriter
-from pdf2docx import Converter
-from PIL import Image
+from flask import Flask, request, send_file, jsonify
 
 app = Flask(__name__)
 limiter = Limiter(get_remote_address, app=app, default_limits=["10 per minute"])
 
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+load_dotenv()  # Load variables from .env
 
-def save_uploaded_files(files):
-    paths = []
-    for file in files:
-        filename = f"{uuid.uuid4()}_{file.filename}"
-        path = os.path.join(UPLOAD_FOLDER, filename)
-        file.save(path)
-        paths.append(path)
-    return paths
+SECRET_KEY = os.getenv("SECRET_KEY")
+MAIL_USERNAME = os.getenv("MAIL_USERNAME")
+MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
+MAIL_SERVER = os.getenv("MAIL_SERVER")
+MAIL_PORT = int(os.getenv("MAIL_PORT"))
 
+# Flask-Mail configuration
+app.config["MAIL_SERVER"] = MAIL_SERVER
+app.config["MAIL_PORT"] = MAIL_PORT
+app.config["MAIL_USE_TLS"] = True
+app.config["MAIL_USERNAME"] = MAIL_USERNAME
+app.config["MAIL_PASSWORD"] = MAIL_PASSWORD
+
+mail = Mail(app)
+
+# ---------------- JWT-protected PDF decorator ----------------
+def require_auth(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        token = request.headers.get("Authorization")
+        if not token:
+            return jsonify({"error": "Missing token"}), 401
+        email = supabase.verify_jwt(token)
+        if not email:
+            return jsonify({"error": "Invalid or expired token"}), 403
+        return func(*args, **kwargs)
+    return wrapper
+
+# ---------------- PDF routes ----------------
 @app.route("/merge-pdf", methods=["POST"])
-def merge_pdf():
+@require_auth
+def merge_pdf_route():
     pdf_files = request.files.getlist("files")
-    paths = save_uploaded_files(pdf_files)
-    merger = PdfMerger()
-    for pdf in paths:
-        merger.append(pdf)
-    output_path = os.path.join(UPLOAD_FOLDER, f"merged_{uuid.uuid4()}.pdf")
-    merger.write(output_path)
-    merger.close()
+    paths = tools.save_uploaded_files(pdf_files)
+    output_path = tools.merge_pdfs(paths)
     return send_file(output_path, as_attachment=True)
 
 @app.route("/split-pdf", methods=["POST"])
-def split_pdf():
+@require_auth
+def split_pdf_route():
     pdf_file = request.files["file"]
-    path = save_uploaded_files([pdf_file])[0]
-    reader = PdfReader(path)
-
-    output_dir = os.path.join(UPLOAD_FOLDER, f"split_{uuid.uuid4()}")
-    os.makedirs(output_dir, exist_ok=True)
-
-    for i, page in enumerate(reader.pages):
-        writer = PdfWriter()
-        writer.add_page(page)
-        part_path = os.path.join(output_dir, f"page_{i+1}.pdf")
-        with open(part_path, "wb") as f:
-            writer.write(f)
-
-    # TODO: Zip all the split files before returning
-    zip_path = shutil.make_archive(output_dir, "zip", output_dir)
+    path = tools.save_uploaded_files([pdf_file])[0]
+    zip_path = tools.split_pdf(path)
     return send_file(zip_path, as_attachment=True)
 
 @app.route("/compress-pdf", methods=["POST"])
-def compress_pdf():
+@require_auth
+def compress_pdf_route():
     pdf_file = request.files["file"]
-    path = save_uploaded_files([pdf_file])[0]
-    doc = fitz.open(path)
-    output_path = os.path.join(UPLOAD_FOLDER, f"compressed_{uuid.uuid4()}.pdf")
-    doc.save(output_path, deflate=True)
-    doc.close()
+    path = tools.save_uploaded_files([pdf_file])[0]
+    output_path = tools.compress_pdf(path)
     return send_file(output_path, as_attachment=True)
 
 @app.route("/pdf-to-word", methods=["POST"])
-def pdf_to_word():
+@require_auth
+def pdf_to_word_route():
     pdf_file = request.files["file"]
-    path = save_uploaded_files([pdf_file])[0]
-    output_path = os.path.join(UPLOAD_FOLDER, f"{uuid.uuid4()}.docx")
-    cv = Converter(path)
-    cv.convert(output_path)
-    cv.close()
+    path = tools.save_uploaded_files([pdf_file])[0]
+    output_path = tools.pdf_to_word(path)
     return send_file(output_path, as_attachment=True)
 
 @app.route("/pdf-to-jpg", methods=["POST"])
-def pdf_to_jpg():
+@require_auth
+def pdf_to_jpg_route():
     pdf_file = request.files["file"]
-    path = save_uploaded_files([pdf_file])[0]
-    pdf = fitz.open(path)
-
-    output_dir = os.path.join(UPLOAD_FOLDER, f"jpg_{uuid.uuid4()}")
-    os.makedirs(output_dir, exist_ok=True)
-
-    for i, page in enumerate(pdf):
-        pix = page.get_pixmap()
-        img_path = os.path.join(output_dir, f"page_{i+1}.jpg")
-        pix.save(img_path)
-
-    pdf.close()
-
-    # TODO: Zip all the JPG files before returning
-    zip_path = shutil.make_archive(output_dir, "zip", output_dir)
+    path = tools.save_uploaded_files([pdf_file])[0]
+    zip_path = tools.pdf_to_jpg(path)
     return send_file(zip_path, as_attachment=True)
 
+# ---------------- Authentication routes ----------------
+@app.route("/signup", methods=["POST"])
+def sign_up():
+    data = request.json
+    email = data.get("email")
+    password = data.get("password")
+    
+    if supabase.get_user_by_email(email):
+        return jsonify({"error": "User already exists"}), 400
+    
+    # Add user to Supabase DB
+    supabase.add_user(email, password)
+    
+    # Send verification email
+    auth.send_verification_email(email, mail, SECRET_KEY)
+    
+    return jsonify({"message": f"Verification email sent to {email}"}), 200
+
+@app.route("/verify-email/<token>")
+def verify_email(token):
+    import jwt
+    from jwt import ExpiredSignatureError, InvalidTokenError
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        email = payload["email"]
+        supabase.mark_verified(email)
+        return jsonify({"message": f"Email {email} verified successfully!"}), 200
+    except ExpiredSignatureError:
+        return jsonify({"error": "Token expired"}), 400
+    except InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 400
+
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.json
+    email = data.get("email")
+    password = data.get("password")
+    
+    user = supabase.get_user_by_email(email)
+    if not user:
+        return jsonify({"error": "User does not exist"}), 404
+    if user["password"] != password:
+        return jsonify({"error": "Incorrect password"}), 401
+    if not user["is_verified"]:
+        return jsonify({"error": "Email not verified"}), 403
+    
+    token = supabase.generate_jwt(email)
+    return jsonify({"token": token}), 200  
+
+# ---------------- Run app ----------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
