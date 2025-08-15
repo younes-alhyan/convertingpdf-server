@@ -1,7 +1,7 @@
 import os
 import auth
 import pages
-import tools  
+import tools
 import database
 from flask import Flask, request, send_file, jsonify
 from flask_mail import Mail
@@ -32,6 +32,7 @@ app.config["MAIL_PASSWORD"] = MAIL_PASSWORD
 
 mail = Mail(app)
 
+
 # ---------------- JWT-protected decorator ----------------
 def require_auth(func):
     @wraps(func)
@@ -43,7 +44,9 @@ def require_auth(func):
         if not email:
             return jsonify({"error": "Invalid or expired token"}), 403
         return func(*args, **kwargs)
+
     return wrapper
+
 
 # ---------------- PDF routes ----------------
 @app.route("/merge-pdf", methods=["POST"])
@@ -60,6 +63,7 @@ def merge_pdf_route():
         print(f"[ERROR] merge_pdf_route: {e}")
         return jsonify({"error": str(e)}), 500
 
+
 @app.route("/split-pdf", methods=["POST"])
 @require_auth
 def split_pdf_route():
@@ -73,6 +77,7 @@ def split_pdf_route():
     except Exception as e:
         print(f"[ERROR] split_pdf_route: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 @app.route("/compress-pdf", methods=["POST"])
 @require_auth
@@ -88,6 +93,7 @@ def compress_pdf_route():
         print(f"[ERROR] compress_pdf_route: {e}")
         return jsonify({"error": str(e)}), 500
 
+
 @app.route("/pdf-to-word", methods=["POST"])
 @require_auth
 def pdf_to_word_route():
@@ -102,6 +108,7 @@ def pdf_to_word_route():
         print(f"[ERROR] pdf_to_word_route: {e}")
         return jsonify({"error": str(e)}), 500
 
+
 @app.route("/pdf-to-jpg", methods=["POST"])
 @require_auth
 def pdf_to_jpg_route():
@@ -115,6 +122,7 @@ def pdf_to_jpg_route():
     except Exception as e:
         print(f"[ERROR] pdf_to_jpg_route: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 # ---------------- Auth routes ----------------
 @app.route("/signup", methods=["POST"])
@@ -139,10 +147,12 @@ def sign_up():
         print(f"[ERROR] sign_up: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
+
 @app.route("/verify-email/<token>")
 def verify_email(token):
     import jwt
     from jwt import ExpiredSignatureError, InvalidTokenError
+
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
         email = payload["email"]
@@ -157,6 +167,7 @@ def verify_email(token):
     except Exception as e:
         print(f"[ERROR] verify_email: {e}")
         return jsonify({"error": "Internal server error"}), 500
+
 
 @app.route("/login", methods=["POST"])
 def login():
@@ -181,6 +192,7 @@ def login():
         print(f"[ERROR] login: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
+
 @app.route("/delete", methods=["DELETE"])
 @require_auth
 def delete_account():
@@ -198,6 +210,7 @@ def delete_account():
     except Exception as e:
         print(f"[ERROR] delete_account: {e}")
         return jsonify({"error": "Internal server error"}), 500
+
 
 # ---------------- Run server ----------------
 if __name__ == "__main__":
