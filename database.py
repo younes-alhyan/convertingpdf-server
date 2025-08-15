@@ -1,43 +1,53 @@
-# supabase.py
-from supabase import create_client
-import os
-from dotenv import load_dotenv
-import jwt
-import datetime
-
-load_dotenv()
-
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-SECRET_KEY = os.getenv("SECRET_KEY")
-
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-
-# ---------------- Auth helpers ----------------
-
 def get_user_by_email(email):
     """Check if a user exists in DB by email"""
-    response = supabase.table("users").select("*").eq("email", email).execute()
-    if response.data and len(response.data) > 0:
-        return response.data[0]
-    return None
+    try:
+        response = supabase.table("users").select("*").eq("email", email).execute()
+        if response.data and len(response.data) > 0:
+            return response.data[0]
+        return None
+    except Exception as e:
+        print(f"[DB ERROR] get_user_by_email: {e}")
+        return None
 
 def add_user(email, password):
     """Add new user to DB with is_verified=False"""
-    user = supabase.table("users").insert({
-        "email": email,
-        "password": password,  # Ideally hash this before storing
-        "is_verified": False
-    }).execute()
-    return user
+    try:
+        response = supabase.table("users").insert({
+            "email": email,
+            "password": password,  # Ideally hash this before storing
+            "is_verified": False
+        }).execute()
+        if response.data:
+            return response.data[0]
+        return None
+    except Exception as e:
+        print(f"[DB ERROR] add_user: {e}")
+        return None
 
 def mark_verified(email):
     """Set user.is_verified=True"""
-    supabase.table("users").update({"is_verified": True}).eq("email", email).execute()
+    try:
+        supabase.table("users").update({"is_verified": True}).eq("email", email).execute()
+        return True
+    except Exception as e:
+        print(f"[DB ERROR] mark_verified: {e}")
+        return False
+
+def delete_user(email):
+    """Delete a user from DB"""
+    try:
+        response = supabase.table("users").delete().eq("email", email).execute()
+        if response.data and len(response.data) > 0:
+            return {"success": True, "message": f"User {email} deleted"}
+        else:
+            return {"success": False, "message": f"User {email} not found or deletion blocked"}
+    except Exception as e:
+        print(f"[DB ERROR] delete_user: {e}")
+        return {"success": False, "message": str(e)}
 
 def generate_jwt(email):
     """Generate a JWT token for login sessions"""
+    import jwt, datetime
     payload = {
         "email": email,
         "exp": datetime.datetime.utcnow() + datetime.timedelta(days=7)
@@ -52,5 +62,7 @@ def verify_jwt(token):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
         return payload["email"]
-    except (ExpiredSignatureError, InvalidTokenError):
+    except ExpiredSignatureError:
+        return None
+    except InvalidTokenError:
         return None
