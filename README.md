@@ -1,28 +1,29 @@
 # 📄 Convertingpdf — PDF Processing API
 
-**Convertingpdf** is a Python-based Flask server providing ⚡ fast PDF operations—including merge, split, compress, convert (PDF→Word, PDF→JPG)—for the frontend at [convertingpdf web app](https://preview--quick-doc-tool.lovable.app/).  
+**Convertingpdf** is a Python-based Flask server providing ⚡ fast PDF operations—including merge, split, compress, convert (PDF→Word, PDF→JPG)—for the frontend at [Convertingpdf Web App](https://preview--quick-doc-tool.lovable.app/).  
 It handles file uploads, processes them, and returns results—all while enforcing rate limits ⏱️ and clean packaging 🗂️.
 
 
 ## 🗂️ Table of Contents
 - [✨ Overview](#-overview)
 - [🚀 Features](#-features)
-- [⏱️ Rate Limiting](#️-rate-limiting)
 - [🛠️ Setup & Hosting](#️-setup--hosting)
-- [💻 Using the API (Client POV)](#-using-the-api-client-pov)
+- [💻 Using the API](#-using-the-api)
 - [💡 Example cURL Requests](#-example-curl-requests)
 - [📁 Project Structure](#-project-structure)
+
 
 ## ✨ Overview
 
 This server powers the backend of **Convertingpdf**—a web app offering PDF utilities like merging, splitting, OCR-free conversions, and compression.  
-Built with Flask and libraries like **PyPDF2**, **pdf2docx**, and **PyMuPDF**, it supports upload handling and rate limiting to ensure smooth operation.
+Built with Flask and libraries like **PyPDF2**, **pdf2docx**, and **PyMuPDF**, it supports upload handling, rate limiting, and ZIP packaging for multi-file outputs.
+
 
 ## 🚀 Features
 
 - **Endpoints**:
   - `POST /merge-pdf` → Merge multiple PDFs into one 📎
-  - `POST /split-pdf` → Split PDFs into pages; returns zipped pages 🗜️
+  - `POST /split-pdf` → Split PDFs into pages; returns ZIP 🗜️
   - `POST /compress-pdf` → Reduce file size with optimization 🗜️
   - `POST /pdf-to-word` → Convert PDF to `.docx` 📝
   - `POST /pdf-to-jpg` → Export PDF pages as JPGs in a ZIP 🖼️
@@ -31,26 +32,35 @@ Built with Flask and libraries like **PyPDF2**, **pdf2docx**, and **PyMuPDF**, i
 
 - **Zipped Downloads** for multi-file responses (split / JPG conversions) 📦.
 
+
 ## 🛠️ Setup & Hosting
 
-1. **Clone & install dependencies**:
-   ```bash
-   git clone <repo-url>
-   cd convertingpdf
-   pip install -r requirements.txt
-   ```
+### 1️⃣ Clone & install dependencies
+```bash
+git clone <repo-url>
+cd convertingpdf
+pip install -r requirements.txt
+```
 
-2. **Install system dependencies** (for PDF→JPG conversion):
-   ```bash
-   sudo apt-get update
-   sudo apt-get install -y poppler-utils
-   ```
+### 2️⃣ Install system dependencies (for PDF→JPG conversion)
+```bash
+sudo apt-get update
+sudo apt-get install -y poppler-utils
+```
 
-3. **Run locally**:
-   ```bash
-   python app.py
-   ```
-   Flask will start on `http://127.0.0.1:5000` 🚀
+### 3️⃣ Run locally
+```bash
+python app.py
+```
+Flask will start on `http://127.0.0.1:5000` 🚀
+
+### 4️⃣ Using Docker 
+```bash
+docker build -t convertingpdf .
+docker run -p 5000:10000 convertingpdf
+```
+> The Flask server listens on `0.0.0.0:$PORT` (default `10000`) for cloud deployment.
+
 
 ## 💻 Using the API 
 
@@ -81,6 +91,9 @@ All endpoints expect **HTTP POST** with multipart form data. Responses are downl
 - **Param**: `file` — PDF
 - **Response**: ZIP of JPG images 🖼️
 
+> ⚠️ **Rate Limit**: 10 requests/minute per IP ⏱️
+
+
 ## 💡 Example cURL Requests
 
 ```bash
@@ -104,7 +117,8 @@ curl -F "file=@input.pdf" http://localhost:5000/pdf-to-jpg --output pages.zip
 
 ```
 convertingpdf/
-├── app.py                 # Flask server with endpoints
-├── requirements.txt       # Python dependencies
+├── app.py             # Flask server with endpoints
+├── Dockerfile         # Dockerfile for containerized deployment
+├── requirements.txt   # Python dependencies
 └── README.md
 ```
