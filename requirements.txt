@@ -1,9 +1,8 @@
-Flask==2.3.4
+Flask==2.3.3
 flask-cors==3.0.10
 PyPDF2==3.0.1
 pdf2docx==0.5.6
 PyMuPDF==1.23.6
-reportlab==4.1.2
+reportlab==4.4.3
 python-dotenv==1.0.0
 Werkzeug==2.3.8
-

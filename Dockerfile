@@ -4,7 +4,7 @@ FROM python:3.11-slim
 # Install system dependencies (poppler for pdf->jpg, pillow dependencies, zip)
 RUN apt-get update && apt-get install -y \
     poppler-utils \
-    libgl1-mesa-glx \
+    libgl1 \
     libglib2.0-0 \
     zip \
     && rm -rf /var/lib/apt/lists/*
@@ -16,6 +16,7 @@ WORKDIR /app
 COPY . .
 
 # Install Python dependencies
+RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Expose port (Render uses $PORT)
