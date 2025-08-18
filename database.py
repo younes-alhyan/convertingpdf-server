@@ -6,6 +6,7 @@ from supabase import create_client
 from jwt import ExpiredSignatureError, InvalidTokenError
 from dotenv import load_dotenv
 import bcrypt
+import threading
 
 load_dotenv()
 
@@ -98,4 +99,73 @@ def verify_jwt(token):
         payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
         return payload["email"]
     except (ExpiredSignatureError, InvalidTokenError):
+        return None
+
+
+def schedule_unverified_deletion(email, delay_seconds=3600):
+    """Delete user if not verified after delay_seconds (default 1 hour)"""
+
+    def delete_if_unverified():
+        user = get_user_by_email(email)
+        if user and not user.get("is_verified", False):
+            print(f"[INFO] Deleting unverified user: {email}")
+            delete_user(email)
+
+    timer = threading.Timer(delay_seconds, delete_if_unverified)
+    timer.start()
+
+
+def add_conversion(
+    user_id,
+    original_filename,
+    converted_filename,
+    conversion_type,
+    file_path,
+    status="completed",
+):
+    """
+    Add a converted file to Supabase Storage and record it in the 'files' table
+    """
+    try:
+        # 1️⃣ Upload file to Supabase Storage
+        folder_path = f"{user_id}/"
+        storage_path = folder_path + converted_filename
+
+        with open(file_path, "rb") as f:
+            supabase.storage.from_("converted_files").upload(
+                storage_path, f, {"upsert": True}
+            )
+
+        # 2️⃣ Get public download URL
+        download_url = supabase.storage.from_("converted_files").get_public_url(
+            storage_path
+        )
+
+        # 3️⃣ File metadata
+        file_size = os.path.getsize(file_path)
+        created_at = datetime.datetime.utcnow()
+
+        # 4️⃣ Insert into files table
+        response = (
+            supabase.table("files")
+            .insert(
+                {
+                    "original_filename": original_filename,
+                    "converted_filename": converted_filename,
+                    "conversion_type": conversion_type,
+                    "status": status,
+                    "created_at": created_at,
+                    "completed_at": created_at if status == "completed" else None,
+                    "file_size": file_size,
+                    "download_url": download_url,
+                    "user_id": user_id,
+                }
+            )
+            .execute()
+        )
+
+        return response.data[0] if response.data else None
+
+    except Exception as e:
+        print(f"[DB ERROR] add_conversion: {e}")
         return None

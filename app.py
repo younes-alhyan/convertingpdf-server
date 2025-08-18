@@ -46,17 +46,55 @@ def require_auth(func):
     return wrapper
 
 
-# ---------------- PDF routes ----------------
+# ---------------- PDF routes (updated) ----------------
+from flask import request, jsonify, send_file
+import uuid
+import os
+import database
+import tools
+
+
+def get_user_id():
+    """Helper to extract user_id from headers"""
+    user_id = request.headers.get("X-User-ID")  # Or use request.json.get("user_id")
+    if not user_id:
+        raise ValueError("User ID required")
+    return user_id
+
+
+def build_response(conversion):
+    """Standardized JSON response"""
+    return {
+        "conversion_id": str(conversion["id"]),
+        "converted_filename": conversion["converted_filename"],
+        "downloadUrl": conversion["download_url"],
+        "file_size": conversion["file_size"],
+        "status": conversion["status"],
+        "message": "Conversion completed successfully",
+    }
+
+
 @app.route("/merge-pdf", methods=["POST"])
 @require_auth
 def merge_pdf_route():
     try:
+        user_id = get_user_id()
         pdf_files = request.files.getlist("files")
         if not pdf_files:
             return jsonify({"error": "No files uploaded"}), 400
         paths = tools.save_uploaded_files(pdf_files)
         output_path = tools.merge_pdfs(paths)
-        return send_file(output_path, as_attachment=True)
+        converted_filename = "merged.pdf"
+
+        conversion = database.add_conversion(
+            user_id=user_id,
+            original_filename=";".join(f.filename for f in pdf_files),
+            converted_filename=converted_filename,
+            conversion_type="merge",
+            file_path=output_path,
+        )
+        return jsonify(build_response(conversion))
+
     except Exception as e:
         print(f"[ERROR] merge_pdf_route: {e}")
         return jsonify({"error": str(e)}), 500
@@ -66,12 +104,23 @@ def merge_pdf_route():
 @require_auth
 def split_pdf_route():
     try:
+        user_id = get_user_id()
         pdf_file = request.files.get("file")
         if not pdf_file:
             return jsonify({"error": "No file uploaded"}), 400
         path = tools.save_uploaded_files([pdf_file])[0]
         zip_path = tools.split_pdf(path)
-        return send_file(zip_path, as_attachment=True)
+        converted_filename = pdf_file.filename.replace(".pdf", "_split.zip")
+
+        conversion = database.add_conversion(
+            user_id=user_id,
+            original_filename=pdf_file.filename,
+            converted_filename=converted_filename,
+            conversion_type="split",
+            file_path=zip_path,
+        )
+        return jsonify(build_response(conversion))
+
     except Exception as e:
         print(f"[ERROR] split_pdf_route: {e}")
         return jsonify({"error": str(e)}), 500
@@ -81,25 +130,23 @@ def split_pdf_route():
 @require_auth
 def compress_pdf_route():
     try:
+        user_id = get_user_id()
         pdf_file = request.files.get("file")
         if not pdf_file:
             return jsonify({"error": "No file uploaded"}), 400
         path = tools.save_uploaded_files([pdf_file])[0]
         output_path = tools.compress_pdf(path)
         converted_filename = pdf_file.filename.replace(".pdf", "_compressed.pdf")
-        file_size = os.path.getsize(output_path)
-        conversion_id = str(uuid.uuid4())
-        download_url = "/downloads/" + converted_filename  # example
-        return jsonify(
-            {
-                "conversion_id": conversion_id,
-                "converted_filename": converted_filename,
-                "downloadUrl": download_url,
-                "file_size": file_size,
-                "status": "completed",
-                "message": "PDF compressed successfully",
-            }
+
+        conversion = database.add_conversion(
+            user_id=user_id,
+            original_filename=pdf_file.filename,
+            converted_filename=converted_filename,
+            conversion_type="compress",
+            file_path=output_path,
         )
+        return jsonify(build_response(conversion))
+
     except Exception as e:
         print(f"[ERROR] compress_pdf_route: {e}")
         return jsonify({"error": str(e)}), 500
@@ -109,12 +156,23 @@ def compress_pdf_route():
 @require_auth
 def pdf_to_word_route():
     try:
+        user_id = get_user_id()
         pdf_file = request.files.get("file")
         if not pdf_file:
             return jsonify({"error": "No file uploaded"}), 400
         path = tools.save_uploaded_files([pdf_file])[0]
         output_path = tools.pdf_to_word(path)
-        return send_file(output_path, as_attachment=True)
+        converted_filename = pdf_file.filename.replace(".pdf", ".docx")
+
+        conversion = database.add_conversion(
+            user_id=user_id,
+            original_filename=pdf_file.filename,
+            converted_filename=converted_filename,
+            conversion_type="pdf_to_word",
+            file_path=output_path,
+        )
+        return jsonify(build_response(conversion))
+
     except Exception as e:
         print(f"[ERROR] pdf_to_word_route: {e}")
         return jsonify({"error": str(e)}), 500
@@ -124,12 +182,23 @@ def pdf_to_word_route():
 @require_auth
 def pdf_to_jpg_route():
     try:
+        user_id = get_user_id()
         pdf_file = request.files.get("file")
         if not pdf_file:
             return jsonify({"error": "No file uploaded"}), 400
         path = tools.save_uploaded_files([pdf_file])[0]
         zip_path = tools.pdf_to_jpg(path)
-        return send_file(zip_path, as_attachment=True)
+        converted_filename = pdf_file.filename.replace(".pdf", "_jpg.zip")
+
+        conversion = database.add_conversion(
+            user_id=user_id,
+            original_filename=pdf_file.filename,
+            converted_filename=converted_filename,
+            conversion_type="pdf_to_jpg",
+            file_path=zip_path,
+        )
+        return jsonify(build_response(conversion))
+
     except Exception as e:
         print(f"[ERROR] pdf_to_jpg_route: {e}")
         return jsonify({"error": str(e)}), 500
@@ -151,6 +220,7 @@ def sign_up():
         if not user:
             return jsonify({"error": "Failed to create user"}), 500
         auth.send_verification_email(email, mail, SECRET_KEY)
+        database.schedule_unverified_deletion(email, 3600)
         return jsonify({"message": f"Verification email sent to {email}"}), 200
     except Exception as e:
         print(f"[ERROR] sign_up: {e}")
