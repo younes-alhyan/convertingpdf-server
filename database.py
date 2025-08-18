@@ -14,6 +14,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+
 # ---------------- Auth helpers ----------------
 def get_user_by_email(email):
     """Check if a user exists in DB by email"""
@@ -27,11 +28,18 @@ def get_user_by_email(email):
         return None
 
 
-def add_user(email, password):
+def add_user(email, password, full_name):
     try:
         response = (
             supabase.table("users")
-            .insert({"email": email, "password": password, "is_verified": False})
+            .insert(
+                {
+                    "fullName": full_name,
+                    "email": email,
+                    "password": password,
+                    "is_verified": False,
+                }
+            )
             .execute()
         )
         print("Supabase response:", response)
