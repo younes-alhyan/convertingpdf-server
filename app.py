@@ -10,6 +10,8 @@ from flask_limiter.util import get_remote_address
 from functools import wraps
 from dotenv import load_dotenv
 from flask import render_template_string
+import uuid
+from flask import Flask, request, jsonify, url_for, send_file
 
 # ---------------- App setup ----------------
 app = Flask(__name__)
@@ -80,9 +82,6 @@ def split_pdf_route():
         return jsonify({"error": str(e)}), 500
 
 
-import uuid
-from flask import Flask, request, jsonify, url_for, send_file
-
 app = Flask(__name__)
 
 
@@ -102,9 +101,7 @@ def compress_pdf_route():
         path = tools.save_uploaded_files([pdf_file])[0]
 
         # Compress PDF (tools.compress_pdf returns path to compressed file)
-        output_path = tools.compress_pdf(
-            path, level=compression_level
-        )  # ignore level if not used
+        output_path = tools.compress_pdf(path)  # ignore level if not used
 
         # Get file info
         converted_filename = pdf_file.filename.replace(".pdf", "_compressed.pdf")
@@ -168,6 +165,7 @@ def pdf_to_jpg_route():
 def sign_up():
     try:
         data = request.json
+        full_name = data.get("fullName")
         email = data.get("email")
         password = data.get("password")
         if not email or not password:
@@ -176,7 +174,7 @@ def sign_up():
         if database.get_user_by_email(email):
             return jsonify({"error": "User already exists"}), 400
 
-        user = database.add_user(email, password)
+        user = database.add_user(email, password, full_name)
         if not user:
             return jsonify({"error": "Failed to create user"}), 500
 
