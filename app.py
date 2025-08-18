@@ -29,6 +29,7 @@ app.config["MAIL_PASSWORD"] = os.getenv("MAIL_PASSWORD")
 mail = Mail(app)
 SECRET_KEY = os.getenv("SECRET_KEY")
 
+
 # ---------------- JWT-protected decorator ----------------
 def require_auth(func):
     @wraps(func)
@@ -41,7 +42,9 @@ def require_auth(func):
         if not email:
             return jsonify({"error": "Invalid or expired token"}), 403
         return func(*args, **kwargs)
+
     return wrapper
+
 
 # ---------------- PDF routes ----------------
 @app.route("/merge-pdf", methods=["POST"])
@@ -58,6 +61,7 @@ def merge_pdf_route():
         print(f"[ERROR] merge_pdf_route: {e}")
         return jsonify({"error": str(e)}), 500
 
+
 @app.route("/split-pdf", methods=["POST"])
 @require_auth
 def split_pdf_route():
@@ -72,6 +76,7 @@ def split_pdf_route():
         print(f"[ERROR] split_pdf_route: {e}")
         return jsonify({"error": str(e)}), 500
 
+
 @app.route("/compress-pdf", methods=["POST"])
 @require_auth
 def compress_pdf_route():
@@ -85,17 +90,20 @@ def compress_pdf_route():
         file_size = os.path.getsize(output_path)
         conversion_id = str(uuid.uuid4())
         download_url = "/downloads/" + converted_filename  # example
-        return jsonify({
-            "conversion_id": conversion_id,
-            "converted_filename": converted_filename,
-            "downloadUrl": download_url,
-            "file_size": file_size,
-            "status": "completed",
-            "message": "PDF compressed successfully",
-        })
+        return jsonify(
+            {
+                "conversion_id": conversion_id,
+                "converted_filename": converted_filename,
+                "downloadUrl": download_url,
+                "file_size": file_size,
+                "status": "completed",
+                "message": "PDF compressed successfully",
+            }
+        )
     except Exception as e:
         print(f"[ERROR] compress_pdf_route: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 @app.route("/pdf-to-word", methods=["POST"])
 @require_auth
@@ -111,6 +119,7 @@ def pdf_to_word_route():
         print(f"[ERROR] pdf_to_word_route: {e}")
         return jsonify({"error": str(e)}), 500
 
+
 @app.route("/pdf-to-jpg", methods=["POST"])
 @require_auth
 def pdf_to_jpg_route():
@@ -124,6 +133,7 @@ def pdf_to_jpg_route():
     except Exception as e:
         print(f"[ERROR] pdf_to_jpg_route: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 # ---------------- Auth routes ----------------
 @app.route("/signup", methods=["POST"])
@@ -146,9 +156,11 @@ def sign_up():
         print(f"[ERROR] sign_up: {e}")
         return jsonify({"error": "Internal server error"}), 500
 
+
 @app.route("/verify-email/<token>")
 def verify_email(token):
     from jwt import ExpiredSignatureError, InvalidTokenError
+
     try:
         payload = database.jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
         email = payload["email"]
@@ -163,6 +175,7 @@ def verify_email(token):
     except Exception as e:
         print(f"[ERROR] verify_email: {e}")
         return jsonify({"error": "Internal server error"}), 500
+
 
 @app.route("/login", methods=["POST"])
 def login():
@@ -180,10 +193,16 @@ def login():
         if not user["is_verified"]:
             return jsonify({"error": "Email not verified"}), 403
         token = database.generate_jwt(email)
-        return jsonify({"email":user.email,"fullName":user.fullname,"token": token}), 200
+        return (
+            jsonify(
+                {"email": user["email"], "fullName": user["fullname"], "token": token}
+            ),
+            200,
+        )
     except Exception as e:
         print(f"[ERROR] login: {e}")
         return jsonify({"error": "Internal server error"}), 500
+
 
 @app.route("/delete", methods=["DELETE"])
 @require_auth
@@ -201,6 +220,7 @@ def delete_account():
     except Exception as e:
         print(f"[ERROR] delete_account: {e}")
         return jsonify({"error": "Internal server error"}), 500
+
 
 # ---------------- Run server ----------------
 if __name__ == "__main__":
