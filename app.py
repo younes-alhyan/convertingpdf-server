@@ -145,6 +145,10 @@ def compress_pdf_route():
             conversion_type="compress",
             file_path=output_path,
         )
+
+        if not conversion:
+            return jsonify({"error": "Failed to save conversion"}), 500
+        
         return jsonify(build_response(conversion))
 
     except Exception as e:
