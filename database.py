@@ -37,7 +37,7 @@ def add_user(full_name, email, password):
             supabase.table("users")
             .insert(
                 {
-                    "fullName": full_name,
+                    "fullname": full_name,
                     "email": email,
                     "password": hashed_password,
                     "is_verified": False,
