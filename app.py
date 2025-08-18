@@ -63,8 +63,8 @@ def build_response(conversion):
     return {
         "conversion_id": str(conversion["id"]),
         "converted_filename": conversion["converted_filename"],
+        "converted_file_size": conversion["file_size"],
         "downloadUrl": conversion["download_url"],
-        "file_size": conversion["file_size"],
         "status": conversion["status"],
         "message": "Conversion completed successfully",
     }

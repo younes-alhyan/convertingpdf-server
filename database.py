@@ -155,9 +155,9 @@ def add_conversion(
             )
 
         # 2️⃣ Get public download URL
-        download_url = supabase.storage.from_("converted_files").get_public_url(
-            storage_path
-        )
+        download_url = supabase.storage.from_("converted_files").create_signed_url(
+            storage_path, 60 * 60 * 24  # expires in 24 hours
+        )["signedURL"]
         logging.info(f"[URL] File uploaded. Public URL: {download_url}")
 
         # 3️⃣ File metadata
@@ -177,7 +177,6 @@ def add_conversion(
                     "completed_at": created_at if status == "completed" else None,
                     "file_size": file_size,
                     "download_url": download_url,
-                    "user_id": user_id,
                 }
             )
             .execute()
