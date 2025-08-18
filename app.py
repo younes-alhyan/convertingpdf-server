@@ -1,6 +1,7 @@
 # app.py
 import os
 import uuid
+import logging
 from functools import wraps
 from flask import Flask, request, jsonify, send_file, render_template_string
 from flask_mail import Mail
@@ -16,6 +17,7 @@ import tools
 
 # ---------------- App setup ----------------
 load_dotenv()
+logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
 limiter = Limiter(get_remote_address, app=app, default_limits=["10 per minute"])
 
@@ -46,17 +48,11 @@ def require_auth(func):
     return wrapper
 
 
-# ---------------- PDF routes (updated) ----------------
-from flask import request, jsonify, send_file
-import uuid
-import os
-import database
-import tools
-
+# ---------------- PDF routes ----------------
 
 def get_user_id():
     """Helper to extract user_id from headers"""
-    user_id = request.headers.get("X-User-ID")  # Or use request.json.get("user_id")
+    user_id = request.headers.get("X-User-ID")
     if not user_id:
         raise ValueError("User ID required")
     return user_id
@@ -96,7 +92,7 @@ def merge_pdf_route():
         return jsonify(build_response(conversion))
 
     except Exception as e:
-        print(f"[ERROR] merge_pdf_route: {e}")
+        logging.error(f"[ERROR] merge_pdf_route: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 
@@ -122,7 +118,7 @@ def split_pdf_route():
         return jsonify(build_response(conversion))
 
     except Exception as e:
-        print(f"[ERROR] split_pdf_route: {e}")
+        logging.error(f"[ERROR] split_pdf_route: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 
@@ -152,7 +148,7 @@ def compress_pdf_route():
         return jsonify(build_response(conversion))
 
     except Exception as e:
-        print(f"[ERROR] compress_pdf_route: {e}")
+        logging.error(f"[ERROR] compress_pdf_route: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 
@@ -178,7 +174,7 @@ def pdf_to_word_route():
         return jsonify(build_response(conversion))
 
     except Exception as e:
-        print(f"[ERROR] pdf_to_word_route: {e}")
+        logging.error(f"[ERROR] pdf_to_word_route: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 
@@ -204,7 +200,7 @@ def pdf_to_jpg_route():
         return jsonify(build_response(conversion))
 
     except Exception as e:
-        print(f"[ERROR] pdf_to_jpg_route: {e}")
+        logging.error(f"[ERROR] pdf_to_jpg_route: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 
@@ -227,7 +223,7 @@ def sign_up():
         database.schedule_unverified_deletion(email, 3600)
         return jsonify({"message": f"Verification email sent to {email}"}), 200
     except Exception as e:
-        print(f"[ERROR] sign_up: {e}")
+        logging.error(f"[ERROR] sign_up: {e}", exc_info=True)
         return jsonify({"error": "Internal server error"}), 500
 
 
@@ -247,7 +243,7 @@ def verify_email(token):
     except InvalidTokenError:
         return render_template_string(pages.verification_html(2)), 400
     except Exception as e:
-        print(f"[ERROR] verify_email: {e}")
+        logging.error(f"[ERROR] verify_email: {e}", exc_info=True)
         return jsonify({"error": "Internal server error"}), 500
 
 
@@ -267,19 +263,16 @@ def login():
         if not user["is_verified"]:
             return jsonify({"error": "Email not verified"}), 403
         token = database.generate_jwt(email)
-        return (
-            jsonify(
-                {
-                    "id": user["id"],
-                    "email": user["email"],
-                    "fullName": user["fullname"],
-                    "token": token,
-                }
-            ),
-            200,
-        )
+        return jsonify(
+            {
+                "id": user["id"],
+                "email": user["email"],
+                "fullName": user["fullname"],
+                "token": token,
+            }
+        ), 200
     except Exception as e:
-        print(f"[ERROR] login: {e}")
+        logging.error(f"[ERROR] login: {e}", exc_info=True)
         return jsonify({"error": "Internal server error"}), 500
 
 
@@ -297,7 +290,7 @@ def delete_account():
         else:
             return jsonify({"error": result["message"]}), 400
     except Exception as e:
-        print(f"[ERROR] delete_account: {e}")
+        logging.error(f"[ERROR] delete_account: {e}", exc_info=True)
         return jsonify({"error": "Internal server error"}), 500
 
 

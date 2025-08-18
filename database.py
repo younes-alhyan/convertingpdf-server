@@ -9,7 +9,7 @@ import bcrypt
 import threading
 import logging
 
-# Configure logging at the start of your app (usually in main.py)
+# Configure logging at the start of your app
 logging.basicConfig(level=logging.INFO)
 
 load_dotenv()
@@ -30,7 +30,7 @@ def get_user_by_email(email):
             return response.data[0]
         return None
     except Exception as e:
-        print(f"[DB ERROR] get_user_by_email: {e}")
+        logging.error(f"[DB ERROR] get_user_by_email: {e}", exc_info=True)
         return None
 
 
@@ -50,12 +50,12 @@ def add_user(full_name, email, password):
             )
             .execute()
         )
-        print("Supabase response:", response)
+        logging.info(f"[DB] User added: {response}")
         if response.data:
             return response.data[0]
         return None
     except Exception as e:
-        print(f"[DB ERROR] add_user: {e}")
+        logging.error(f"[DB ERROR] add_user: {e}", exc_info=True)
         raise
 
 
@@ -65,9 +65,10 @@ def mark_verified(email):
         supabase.table("users").update({"is_verified": True}).eq(
             "email", email
         ).execute()
+        logging.info(f"[DB] User verified: {email}")
         return True
     except Exception as e:
-        print(f"[DB ERROR] mark_verified: {e}")
+        logging.error(f"[DB ERROR] mark_verified: {e}", exc_info=True)
         return False
 
 
@@ -76,14 +77,16 @@ def delete_user(email):
     try:
         response = supabase.table("users").delete().eq("email", email).execute()
         if response.data and len(response.data) > 0:
+            logging.info(f"[DB] User deleted: {email}")
             return {"success": True, "message": f"User {email} deleted"}
         else:
+            logging.warning(f"[DB] User not found or deletion blocked: {email}")
             return {
                 "success": False,
                 "message": f"User {email} not found or deletion blocked",
             }
     except Exception as e:
-        print(f"[DB ERROR] delete_user: {e}")
+        logging.error(f"[DB ERROR] delete_user: {e}", exc_info=True)
         return {"success": False, "message": str(e)}
 
 
@@ -103,6 +106,7 @@ def verify_jwt(token):
         payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
         return payload["email"]
     except (ExpiredSignatureError, InvalidTokenError):
+        logging.warning("[AUTH] Invalid or expired JWT")
         return None
 
 
@@ -112,7 +116,7 @@ def schedule_unverified_deletion(email, delay_seconds=3600):
     def delete_if_unverified():
         user = get_user_by_email(email)
         if user and not user.get("is_verified", False):
-            print(f"[INFO] Deleting unverified user: {email}")
+            logging.info(f"[INFO] Deleting unverified user: {email}")
             delete_user(email)
 
     timer = threading.Timer(delay_seconds, delete_if_unverified)
@@ -139,9 +143,7 @@ def add_conversion(
         logging.info(f"[UPLOAD] Uploading {file_path} → {storage_path}")
 
         with open(file_path, "rb") as f:
-            supabase.storage.from_("converted_files").upload(
-                storage_path, f, {"upsert": True}
-            )
+            supabase.storage.from_("converted_files").upload(storage_path, f)
 
         # 2️⃣ Get public download URL
         download_url = supabase.storage.from_("converted_files").get_public_url(
@@ -174,7 +176,6 @@ def add_conversion(
         )
 
         logging.info(f"[DB] Insert response: {response}")
-
         return response.data[0] if response.data else None
 
     except Exception as e:
