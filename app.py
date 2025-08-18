@@ -265,7 +265,12 @@ def login():
         token = database.generate_jwt(email)
         return (
             jsonify(
-                {"email": user["email"], "fullName": user["fullname"], "token": token}
+                {
+                    "id": user["id"],
+                    "email": user["email"],
+                    "fullName": user["fullname"],
+                    "token": token,
+                }
             ),
             200,
         )
