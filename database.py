@@ -142,8 +142,17 @@ def add_conversion(
         storage_path = folder_path + converted_filename
         logging.info(f"[UPLOAD] Uploading {file_path} → {storage_path}")
 
-        with open(file_path, "rb") as f:
-            supabase.storage.from_("converted_files").upload(storage_path, f)
+        storage = supabase.storage.from_("converted_files")
+
+        # Check if file already exists
+        existing_files = storage.list(user_id)  # list all files in the user's folder
+        if converted_filename not in [f["name"] for f in existing_files]:
+            with open(file_path, "rb") as f:
+                storage.upload(storage_path, f)
+        else:
+            logging.info(
+                f"[UPLOAD] File already exists: {storage_path}, skipping upload"
+            )
 
         # 2️⃣ Get public download URL
         download_url = supabase.storage.from_("converted_files").get_public_url(
@@ -153,10 +162,9 @@ def add_conversion(
 
         # 3️⃣ File metadata
         file_size = os.path.getsize(file_path)
-        created_at = datetime.datetime.utcnow()
+        created_at = datetime.datetime.utcnow().isoformat()
         logging.info(f"[META] Size: {file_size}, Created at: {created_at}")
 
-        # 4️⃣ Insert into files table
         response = (
             supabase.table("files")
             .insert(
