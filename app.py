@@ -37,7 +37,8 @@ mail = Mail(app)
 def require_auth(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
-        token = request.headers.get("Authorization")
+        auth_header = request.headers.get("Authorization")
+        token = auth_header.split(" ")[1]
         if not token:
             return jsonify({"error": "Missing token"}), 401
         email = database.verify_jwt(token)
@@ -79,16 +80,54 @@ def split_pdf_route():
         return jsonify({"error": str(e)}), 500
 
 
+import uuid
+from flask import Flask, request, jsonify, url_for, send_file
+
+app = Flask(__name__)
+
+
 @app.route("/compress-pdf", methods=["POST"])
 @require_auth
 def compress_pdf_route():
     try:
+        # Get the uploaded file
         pdf_file = request.files.get("file")
         if not pdf_file:
             return jsonify({"error": "No file uploaded"}), 400
+
+        # Optional: get compression level (ignore for now)
+        compression_level = request.form.get("compressionLevel", "medium")
+
+        # Save uploaded file
         path = tools.save_uploaded_files([pdf_file])[0]
-        output_path = tools.compress_pdf(path)
-        return send_file(output_path, as_attachment=True)
+
+        # Compress PDF (tools.compress_pdf returns path to compressed file)
+        output_path = tools.compress_pdf(
+            path, level=compression_level
+        )  # ignore level if not used
+
+        # Get file info
+        converted_filename = pdf_file.filename.replace(".pdf", "_compressed.pdf")
+        file_size = os.path.getsize(output_path)
+
+        # Generate a conversion ID (UUID for example)
+        conversion_id = str(uuid.uuid4())
+
+        # Optionally generate a download URL (if you serve static files)
+        download_url = "www.youtube.com"
+
+        # Respond with JSON
+        response_data = {
+            "conversion_id": conversion_id,
+            "converted_filename": converted_filename,
+            "downloadUrl": download_url,
+            "file_size": file_size,
+            "status": "completed",
+            "message": "PDF compressed successfully",
+        }
+
+        return jsonify(response_data)
+
     except Exception as e:
         print(f"[ERROR] compress_pdf_route: {e}")
         return jsonify({"error": str(e)}), 500
