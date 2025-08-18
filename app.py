@@ -180,7 +180,7 @@ def login():
         if not user["is_verified"]:
             return jsonify({"error": "Email not verified"}), 403
         token = database.generate_jwt(email)
-        return jsonify({"token": token}), 200
+        return jsonify({"email":user.email,"fullName":user.fullname,"token": token}), 200
     except Exception as e:
         print(f"[ERROR] login: {e}")
         return jsonify({"error": "Internal server error"}), 500
