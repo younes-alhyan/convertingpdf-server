@@ -15,6 +15,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+
 # ---------------- Auth helpers ----------------
 def get_user_by_email(email):
     """Check if a user exists in DB by email"""
@@ -27,18 +28,23 @@ def get_user_by_email(email):
         print(f"[DB ERROR] get_user_by_email: {e}")
         return None
 
+
 def add_user(full_name, email, password):
     """Insert a new user into DB with hashed password"""
     try:
         hashed_password = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-        response = supabase.table("users").insert(
-            {
-                "fullName": full_name,
-                "email": email,
-                "password": hashed_password,
-                "is_verified": False,
-            }
-        ).execute()
+        response = (
+            supabase.table("users")
+            .insert(
+                {
+                    "fullName": full_name,
+                    "email": email,
+                    "password": hashed_password,
+                    "is_verified": False,
+                }
+            )
+            .execute()
+        )
         print("Supabase response:", response)
         if response.data:
             return response.data[0]
@@ -46,6 +52,7 @@ def add_user(full_name, email, password):
     except Exception as e:
         print(f"[DB ERROR] add_user: {e}")
         raise
+
 
 def mark_verified(email):
     """Set user.is_verified=True"""
@@ -58,6 +65,7 @@ def mark_verified(email):
         print(f"[DB ERROR] mark_verified: {e}")
         return False
 
+
 def delete_user(email):
     """Delete a user from DB"""
     try:
@@ -65,10 +73,14 @@ def delete_user(email):
         if response.data and len(response.data) > 0:
             return {"success": True, "message": f"User {email} deleted"}
         else:
-            return {"success": False, "message": f"User {email} not found or deletion blocked"}
+            return {
+                "success": False,
+                "message": f"User {email} not found or deletion blocked",
+            }
     except Exception as e:
         print(f"[DB ERROR] delete_user: {e}")
         return {"success": False, "message": str(e)}
+
 
 def generate_jwt(email):
     """Generate a JWT token for login sessions"""
@@ -78,6 +90,7 @@ def generate_jwt(email):
     }
     token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
     return token
+
 
 def verify_jwt(token):
     """Decode JWT and return email if valid"""
