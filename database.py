@@ -7,6 +7,10 @@ from jwt import ExpiredSignatureError, InvalidTokenError
 from dotenv import load_dotenv
 import bcrypt
 import threading
+import logging
+
+# Configure logging at the start of your app (usually in main.py)
+logging.basicConfig(level=logging.INFO)
 
 load_dotenv()
 
@@ -115,67 +119,64 @@ def schedule_unverified_deletion(email, delay_seconds=3600):
     timer.start()
 
 
-def add_conversion(user_id, original_filename, converted_filename, conversion_type, file_path, status="completed"):
+def add_conversion(
+    user_id,
+    original_filename,
+    converted_filename,
+    conversion_type,
+    file_path,
+    status="completed",
+):
+    """
+    Add a converted file to Supabase Storage and record it in the 'files' table
+    """
     try:
-        print("[INFO] Starting add_conversion...")
+        logging.info("[START] add_conversion called")
+
+        # 1️⃣ Upload file to Supabase Storage
         folder_path = f"{user_id}/"
         storage_path = folder_path + converted_filename
-        print(f"[INFO] Storage path: {storage_path}")
+        logging.info(f"[UPLOAD] Uploading {file_path} → {storage_path}")
 
-        # 1️⃣ Upload file
-        try:
-            print("[INFO] Uploading file to Supabase Storage...")
-            with open(file_path, "rb") as f:
-                supabase.storage.from_("converted_files").upload(storage_path, f, {"upsert": True})
-            print("[INFO] File uploaded successfully.")
-        except Exception as e:
-            print(f"[ERROR] Storage upload failed: {e}")
-            return None
+        with open(file_path, "rb") as f:
+            supabase.storage.from_("converted_files").upload(
+                storage_path, f, {"upsert": True}
+            )
 
-        # 2️⃣ Generate signed URL
-        try:
-            print("[INFO] Generating download URL...")
-            download_url = supabase.storage.from_("converted_files").create_signed_url(storage_path, 3600)["signedURL"]
-            print(f"[INFO] Download URL: {download_url}")
-        except Exception as e:
-            print(f"[ERROR] Generating signed URL failed: {e}")
-            return None
+        # 2️⃣ Get public download URL
+        download_url = supabase.storage.from_("converted_files").get_public_url(
+            storage_path
+        )
+        logging.info(f"[URL] File uploaded. Public URL: {download_url}")
 
-        # 3️⃣ Get file size and timestamp
-        try:
-            file_size = os.path.getsize(file_path)
-            created_at = datetime.datetime.utcnow()
-            print(f"[INFO] File size: {file_size}, created_at: {created_at}")
-        except Exception as e:
-            print(f"[ERROR] Getting file metadata failed: {e}")
-            return None
+        # 3️⃣ File metadata
+        file_size = os.path.getsize(file_path)
+        created_at = datetime.datetime.utcnow()
+        logging.info(f"[META] Size: {file_size}, Created at: {created_at}")
 
         # 4️⃣ Insert into files table
-        try:
-            print("[INFO] Inserting record into files table...")
-            response = supabase.table("files").insert({
-                "original_filename": original_filename,
-                "converted_filename": converted_filename,
-                "conversion_type": conversion_type,
-                "status": status,
-                "created_at": created_at,
-                "completed_at": created_at if status == "completed" else None,
-                "file_size": file_size,
-                "download_url": download_url,
-                "user_id": user_id,
-            }).execute()
+        response = (
+            supabase.table("files")
+            .insert(
+                {
+                    "original_filename": original_filename,
+                    "converted_filename": converted_filename,
+                    "conversion_type": conversion_type,
+                    "status": status,
+                    "created_at": created_at,
+                    "completed_at": created_at if status == "completed" else None,
+                    "file_size": file_size,
+                    "download_url": download_url,
+                    "user_id": user_id,
+                }
+            )
+            .execute()
+        )
 
-            if response.error:
-                print(f"[ERROR] Insert failed: {response.error}")
-                return None
+        logging.info(f"[DB] Insert response: {response}")
 
-            print("[INFO] Insert successful!")
-            return response.data[0]
-
-        except Exception as e:
-            print(f"[ERROR] Insert exception: {e}")
-            return None
+        return response.data[0] if response.data else None
 
     except Exception as e:
-        print(f"[DB ERROR] Unexpected error in add_conversion: {e}")
+        logging.error(f"[DB ERROR] add_conversion: {e}", exc_info=True)
         return None
