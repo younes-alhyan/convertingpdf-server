@@ -10,3 +10,4 @@ python-dotenv==1.0.0
 Werkzeug==2.3.8
 supabase==1.0.6
 PyJWT==2.8.0
+bcrypt==4.1.0
