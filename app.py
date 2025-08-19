@@ -3,6 +3,7 @@ import os
 import uuid
 import logging
 from functools import wraps
+from flask_cors import CORS
 from flask import Flask, request, jsonify, send_file, render_template_string
 from flask_mail import Mail
 from flask_limiter import Limiter
@@ -19,6 +20,7 @@ import tools
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
+CORS(app) 
 limiter = Limiter(get_remote_address, app=app, default_limits=["10 per minute"])
 
 # Mail config
