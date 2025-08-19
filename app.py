@@ -50,6 +50,7 @@ def require_auth(func):
 
 # ---------------- PDF routes ----------------
 
+
 def get_user_id():
     """Helper to extract user_id from headers"""
     user_id = request.headers.get("X-User-ID")
@@ -89,6 +90,8 @@ def merge_pdf_route():
             conversion_type="merge",
             file_path=output_path,
         )
+
+        tools.clear_uploads_folder()
         return jsonify(build_response(conversion))
 
     except Exception as e:
@@ -102,10 +105,12 @@ def split_pdf_route():
     try:
         user_id = get_user_id()
         pdf_file = request.files.get("file")
+        split_type = request.form.get("splitType")
+        split_value = request.form.get("splitValue")
         if not pdf_file:
             return jsonify({"error": "No file uploaded"}), 400
         path = tools.save_uploaded_files([pdf_file])[0]
-        zip_path = tools.split_pdf(path)
+        zip_path = tools.split_pdf(path, split_type, split_value)
         converted_filename = pdf_file.filename.replace(".pdf", "_split.zip")
 
         conversion = database.add_conversion(
@@ -115,6 +120,8 @@ def split_pdf_route():
             conversion_type="split",
             file_path=zip_path,
         )
+
+        tools.clear_uploads_folder()
         return jsonify(build_response(conversion))
 
     except Exception as e:
@@ -128,10 +135,11 @@ def compress_pdf_route():
     try:
         user_id = get_user_id()
         pdf_file = request.files.get("file")
+        compression_level = request.form.get("compressionLevel", "medium")
         if not pdf_file:
             return jsonify({"error": "No file uploaded"}), 400
         path = tools.save_uploaded_files([pdf_file])[0]
-        output_path = tools.compress_pdf(path)
+        output_path = tools.compress_pdf(path, level=compression_level)
         converted_filename = pdf_file.filename.replace(".pdf", "_compressed.pdf")
 
         conversion = database.add_conversion(
@@ -144,7 +152,8 @@ def compress_pdf_route():
 
         if not conversion:
             return jsonify({"error": "Failed to save conversion"}), 500
-        
+
+        tools.clear_uploads_folder()
         return jsonify(build_response(conversion))
 
     except Exception as e:
@@ -171,6 +180,8 @@ def pdf_to_word_route():
             conversion_type="pdf_to_word",
             file_path=output_path,
         )
+
+        tools.clear_uploads_folder()
         return jsonify(build_response(conversion))
 
     except Exception as e:
@@ -197,10 +208,27 @@ def pdf_to_jpg_route():
             conversion_type="pdf_to_jpg",
             file_path=zip_path,
         )
+
+        tools.clear_uploads_folder()
         return jsonify(build_response(conversion))
 
     except Exception as e:
         logging.error(f"[ERROR] pdf_to_jpg_route: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/conversions")
+@require_auth
+def conversions():
+    try:
+        user_id = get_user_id()
+        conversions = database.get_conversions(user_id)
+        if conversions is None:  # actual error
+            return {"error": "Failed to fetch conversions"}, 500
+        # empty list is fine
+        return {"data": conversions}, 200
+    except Exception as e:
+        logging.error(f"[ERROR] convertions: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 
@@ -263,14 +291,17 @@ def login():
         if not user["is_verified"]:
             return jsonify({"error": "Email not verified"}), 403
         token = database.generate_jwt(email)
-        return jsonify(
-            {
-                "id": user["id"],
-                "email": user["email"],
-                "fullName": user["fullname"],
-                "token": token,
-            }
-        ), 200
+        return (
+            jsonify(
+                {
+                    "id": user["id"],
+                    "email": user["email"],
+                    "fullName": user["fullname"],
+                    "token": token,
+                }
+            ),
+            200,
+        )
     except Exception as e:
         logging.error(f"[ERROR] login: {e}", exc_info=True)
         return jsonify({"error": "Internal server error"}), 500

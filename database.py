@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 import bcrypt
 import threading
 import logging
+import uuid
+import httpx
 
 # Configure logging at the start of your app
 logging.basicConfig(level=logging.INFO)
@@ -132,43 +134,21 @@ def add_conversion(
     status="completed",
 ):
     """
-    Add a converted file to Supabase Storage and record it in the 'files' table
+    Add a converted file to Supabase Storage and record it in the 'files' table.
+    File is stored by its conversion UUID and deleted after 1 hour.
     """
     try:
         logging.info("[START] add_conversion called")
 
-        # 1️⃣ Upload file to Supabase Storage
-        folder_path = f"{user_id}/"
-        storage_path = folder_path + converted_filename
-        logging.info(f"[UPLOAD] Uploading {file_path} → {storage_path}")
-
-        storage = supabase.storage.from_("converted_files")
-
-        # Check if file already exists
-        existing_files = storage.list(user_id)  # list all files in the user's folder
-        if converted_filename not in [f["name"] for f in existing_files]:
-            with open(file_path, "rb") as f:
-                storage.upload(storage_path, f)
-        else:
-            logging.info(
-                f"[UPLOAD] File already exists: {storage_path}, skipping upload"
-            )
-
-        # 2️⃣ Get public download URL
-        download_url = supabase.storage.from_("converted_files").create_signed_url(
-            storage_path, 60 * 60 * 24  # expires in 24 hours
-        )["signedURL"]
-        logging.info(f"[URL] File uploaded. Public URL: {download_url}")
-
-        # 3️⃣ File metadata
-        file_size = os.path.getsize(file_path)
+        # 1️⃣ Insert DB record first to get UUID
         created_at = datetime.datetime.utcnow().isoformat()
-        logging.info(f"[META] Size: {file_size}, Created at: {created_at}")
+        file_size = os.path.getsize(file_path)
 
-        response = (
+        insert_resp = (
             supabase.table("files")
             .insert(
                 {
+                    "user_id": user_id,
                     "original_filename": original_filename,
                     "converted_filename": converted_filename,
                     "conversion_type": conversion_type,
@@ -176,15 +156,88 @@ def add_conversion(
                     "created_at": created_at,
                     "completed_at": created_at if status == "completed" else None,
                     "file_size": file_size,
-                    "download_url": download_url,
+                    "download_url": None,  # placeholder until upload
                 }
             )
             .execute()
         )
 
-        logging.info(f"[DB] Insert response: {response}")
-        return response.data[0] if response.data else None
+        if not insert_resp.data:
+            logging.error("[DB ERROR] Could not insert file record")
+            return None
+
+        file_record = insert_resp.data[0]
+        file_id = file_record["id"]  # UUID from Supabase
+
+        # 2️⃣ Decide file extension based on conversion type
+        if conversion_type in ["split", "pdf_to_jpg"]:
+            file_ext = ".zip"
+            content_type = "application/zip"
+        else:
+            file_ext = ".pdf"
+            content_type = "application/pdf"
+
+        # 3️⃣ Upload file using UUID as storage path
+        storage_path = f"{user_id}/{file_id}{file_ext}"
+        storage = supabase.storage.from_("converted_files")
+
+        with open(file_path, "rb") as f:
+            storage.upload(storage_path, f, {"content-type": content_type})
+
+        # 4️⃣ Create signed URL (1 hour)
+        download_url = storage.create_signed_url(storage_path, 60 * 60)["signedURL"]
+
+        # 5️⃣ Update DB record with the signed URL
+        supabase.table("files").update({"download_url": download_url}).eq(
+            "id", file_id
+        ).execute()
+
+        logging.info(f"[UPLOAD] File stored as {storage_path}, URL: {download_url}")
+
+        # 6️⃣ Schedule deletion after 1 hour
+        def delete_after_delay():
+            try:
+                storage.remove([storage_path])
+                logging.info(f"[CLEANUP] Deleted {storage_path} from storage")
+                supabase.table("files").delete().eq("id", file_id).execute()
+                logging.info(f"[CLEANUP] Deleted DB record for {file_id}")
+            except Exception as e:
+                logging.error(f"[CLEANUP ERROR] {e}", exc_info=True)
+
+        threading.Timer(3600, delete_after_delay).start()
+
+        return {**file_record, "download_url": download_url}
+    except httpx.ReadTimeout:
+        logging.error("[TIMEOUT] Upload took too long")
+        return {"error": "upload_timeout"}
 
     except Exception as e:
         logging.error(f"[DB ERROR] add_conversion: {e}", exc_info=True)
         return None
+
+
+def get_conversions(user_id):
+    """
+    Fetch all conversions for a specific user.
+    Returns a list of conversion records (dicts).
+    """
+    try:
+        resp = (
+            supabase.table("files")
+            .select("*")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)  # newest first
+            .execute()
+        )
+        logging.error(resp)
+        # Check if there was an error
+        if getattr(resp, "error", None):
+            print(f"[ERROR] Supabase returned an error: {resp.error}")
+            return None  # Indicates request failed
+
+        # If no error, return data (could be empty list)
+        return resp.data or []  # empty list if no records
+
+    except Exception as e:
+        print(f"[ERROR] get_conversions failed: {e}")
+        return []
