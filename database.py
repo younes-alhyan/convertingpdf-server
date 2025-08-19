@@ -173,6 +173,9 @@ def add_conversion(
         if conversion_type in ["split", "pdf_to_jpg"]:
             file_ext = ".zip"
             content_type = "application/zip"
+        elif conversion_type == "pdf_to_word":
+            file_ext = ".docx"
+            content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document" 
         else:
             file_ext = ".pdf"
             content_type = "application/pdf"
