@@ -81,7 +81,8 @@ def merge_pdf_route():
             return jsonify({"error": "No files uploaded"}), 400
         paths = tools.save_uploaded_files(pdf_files)
         output_path = tools.merge_pdfs(paths)
-        converted_filename = "merged.pdf"
+        filename = pdf_files[0].filename
+        converted_filename = f"{filename}_merged.pdf"
 
         conversion = database.add_conversion(
             user_id=user_id,
