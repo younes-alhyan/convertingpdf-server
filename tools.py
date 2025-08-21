@@ -5,6 +5,7 @@ import shutil
 import fitz  # PyMuPDF
 from PyPDF2 import PdfMerger, PdfReader, PdfWriter
 from pdf2docx import Converter
+from io import BytesIO
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -156,3 +157,39 @@ def clear_uploads_folder(folder_path="uploads"):
                 shutil.rmtree(file_path)
         except Exception as e:
             print(f"Failed to delete {file_path}: {e}")
+
+def edit_pdf(path, edit_type, content, x, y, page_number=1):
+    """
+    Edit a PDF by adding text, signature, or annotation.
+
+    path: str - input PDF path
+    edit_type: "add-text", "add-signature", "add-annotation"
+    content: str - text or image path for signature
+    x, y: int - coordinates for the edit
+    page_number: int - 1-indexed page to edit (default: 1)
+    """
+    doc = fitz.open(path)
+    output_path = os.path.join(UPLOAD_FOLDER, f"edited_{uuid.uuid4()}.pdf")
+    
+    # Ensure page_number is valid
+    page_index = max(0, min(page_number - 1, len(doc) - 1))
+    page = doc[page_index]
+
+    if edit_type == "add-text":
+        page.insert_text((x, y), content, fontsize=12)
+    elif edit_type == "add-signature":
+        # content should be path to signature image
+        page.insert_text((x, y), content, fontsize=12, fontname="helv")
+    elif edit_type == "add-annotation":
+        page.add_text_annot((x, y), content)
+    elif edit_type == "add-image":
+        img_bytes = BytesIO(content.read())
+        rect = fitz.Rect(x, y, x + 200, y + 200)
+        page.insert_image(rect, stream=img_bytes)
+    else:
+        doc.close()
+        raise ValueError("Invalid edit_type, must be 'add-text', 'add-signature', or 'add-annotation'")
+
+    doc.save(output_path)
+    doc.close()
+    return output_path

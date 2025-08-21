@@ -10,7 +10,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
 import bcrypt
-
+import json
 import database
 import auth
 import pages
@@ -20,7 +20,7 @@ import tools
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
-CORS(app) 
+CORS(app)
 limiter = Limiter(get_remote_address, app=app, default_limits=["10 per minute"])
 
 # Mail config
@@ -217,6 +217,53 @@ def pdf_to_jpg_route():
 
     except Exception as e:
         logging.error(f"[ERROR] pdf_to_jpg_route: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/edit", methods=["POST"])
+@require_auth
+def edit_route():
+    try:
+        user_id = get_user_id()
+        pdf_file = request.files.get("file")
+        edit_type = request.form.get("editType")
+        edit_data = request.form.get("editData")
+
+        if not pdf_file:
+            return jsonify({"error": "No file uploaded"}), 400
+        path = tools.save_uploaded_files([pdf_file])[0]
+
+        edit_data = json.loads(edit_data)
+        # Destructure
+        if edit_type == "add-image":
+            image_file = request.files.get("imageFile")
+            if not image_file:
+                return jsonify({"error": "No image uploaded"}), 400
+            content = image_file  # pass the file object
+        else:
+            content = edit_data.get("content")
+            if not content:
+                return jsonify({"error": "No text content provided"}), 400
+        
+        x = edit_data.get("x")
+        y = edit_data.get("y")
+
+        output_path = tools.edit_pdf(path, edit_type, content, x, y)
+        converted_filename = pdf_file.filename.replace(".pdf", "_edited.pdf")
+
+        conversion = database.add_conversion(
+            user_id=user_id,
+            original_filename=pdf_file.filename,
+            converted_filename=converted_filename,
+            conversion_type="edit",
+            file_path=output_path,
+        )
+
+        tools.clear_uploads_folder()
+        return jsonify(build_response(conversion))
+
+    except Exception as e:
+        logging.error(f"[ERROR] edit_pdf_route: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 
