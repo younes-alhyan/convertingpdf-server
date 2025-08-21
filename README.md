@@ -8,7 +8,7 @@ The server is built with **Flask**, provides a REST API for PDF processing, and 
 
 I contributed mainly to linking the **backend server** with the web app, handling authentication, and integrating PDF tools.
 
-Frontend handled by my teammate: [Quick-Doc-Tool repo](https://github.com/itachi-555/quick-doc-tool).
+Frontend handled by my teammate: [ConvertingPDF repo](https://github.com/lamgaldamtechnology/convertingpdf).
 
 ## 📑 Table of Contents
 
@@ -24,7 +24,7 @@ Frontend handled by my teammate: [Quick-Doc-Tool repo](https://github.com/itachi
   - [PDF → JPG](#5-pdf-→-jpg)
   - [Edit PDF](#6-edit-pdf)
   - [List Conversions](#7-list-conversions)
-  [📂 Project Structure](#📂-project-structure)
+- [📂 Project Structure](#📂-project-structure)
 
 ## ⚙️ Features
 
