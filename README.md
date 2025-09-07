@@ -12,11 +12,11 @@ Frontend handled by my teammate: [ConvertingPDF repo](https://github.com/lamgald
 
 ## 📑 Table of Contents
 
-- [⚙️ Features](#⚙️-features)
-- [🛠️ Tech Stack](#🛠️-tech-stack)
-- [📦 Setup](#📦-setup)
-- [🔑 Authentication](#🔑-authentication)
-- [📡 API Endpoints](#📡-api-endpoints)
+- [⚙️ Features](#features)
+- [🛠️ Tech Stack](#tech-stack)
+- [📦 Setup](#setup)
+- [🔑 Authentication](#authentication)
+- [📡 API Endpoints](#api-endpoints)
   - [Merge PDFs](#1-merge-pdfs)
   - [Split PDF](#2-split-pdf)
   - [Compress PDF](#3-compress-pdf)
@@ -24,7 +24,9 @@ Frontend handled by my teammate: [ConvertingPDF repo](https://github.com/lamgald
   - [PDF → JPG](#5-pdf-→-jpg)
   - [Edit PDF](#6-edit-pdf)
   - [List Conversions](#7-list-conversions)
-- [📂 Project Structure](#📂-project-structure)
+- [📂 Project Structure](#project-structure)
+
+<div id="features"></div>
 
 ## ⚙️ Features
 
@@ -42,6 +44,8 @@ Frontend handled by my teammate: [ConvertingPDF repo](https://github.com/lamgald
 
 - ⏱ Rate limiting for security (`10 requests/minute`)
 
+<div id="tech-stack"></div>
+
 ## 🛠️ Tech Stack
 
 - **Backend Framework:** [![Flask](https://img.shields.io/badge/Flask-Backend-blue?logo=flask)](https://flask.palletsprojects.com/)
@@ -49,6 +53,8 @@ Frontend handled by my teammate: [ConvertingPDF repo](https://github.com/lamgald
 - **Auth:** JWT + bcrypt
 - **Email:** Flask-Mail (SMTP)
 - **File Handling:** PyPDF2 / pdf2docx / Pillow
+
+<div id="setup"></div>
 
 ## 📦 Setup
 
@@ -105,6 +111,8 @@ docker run -d -p 10000:10000 --env-file .env convertingpdf-server
 3. The server will be accessible at:
    `http://localhost:10000`
 
+<div id="authentication"></div>
+
 ## 🔑 Authentication
 
 Most routes require a **JWT Bearer Token**.
@@ -125,6 +133,8 @@ Also include `X-User-ID` in headers for PDF routes:
 ```
 X-User-ID: <user_id>
 ```
+
+<div id="api-endpoints"></div>
 
 ## 📡 API Endpoints
 
@@ -322,6 +332,8 @@ curl -X GET http://localhost:10000/conversions \
   ]
 }
 ```
+
+<div id="project-structure"></div>
 
 ## 📂 Project Structure
 
