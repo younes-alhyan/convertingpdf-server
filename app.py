@@ -20,6 +20,8 @@ limiter = Limiter(get_remote_address, app=app, default_limits=["10 per minute"])
 @app.route("/merge-pdf", methods=["POST"])
 def merge_pdf_route():
     try:
+        tools.clear_uploads_folder()
+        
         pdf_files = request.files.getlist("files")
         if not pdf_files:
             return jsonify({"error": "No files uploaded"}), 400
@@ -28,8 +30,6 @@ def merge_pdf_route():
         output_path = tools.merge_pdfs(paths)
         filename = pdf_files[0].filename
         converted_filename = f"{filename}_merged.pdf"
-
-        tools.clear_uploads_folder()
 
         return send_file(
             output_path,
@@ -46,6 +46,8 @@ def merge_pdf_route():
 @app.route("/split-pdf", methods=["POST"])
 def split_pdf_route():
     try:
+        tools.clear_uploads_folder()
+        
         pdf_file = request.files.get("file")
         split_type = request.form.get("splitType")
         split_value = request.form.get("splitValue")
@@ -55,8 +57,6 @@ def split_pdf_route():
         path = tools.save_uploaded_files([pdf_file])[0]
         zip_path = tools.split_pdf(path, split_type, split_value)
         converted_filename = pdf_file.filename.replace(".pdf", "_split.zip")
-
-        tools.clear_uploads_folder()
 
         return send_file(
             zip_path,
@@ -73,6 +73,8 @@ def split_pdf_route():
 @app.route("/compress-pdf", methods=["POST"])
 def compress_pdf_route():
     try:
+        tools.clear_uploads_folder()
+
         pdf_file = request.files.get("file")
         compression_level = request.form.get("compressionLevel", "medium")
         if not pdf_file:
@@ -81,8 +83,6 @@ def compress_pdf_route():
         path = tools.save_uploaded_files([pdf_file])[0]
         output_path = tools.compress_pdf(path, level=compression_level)
         converted_filename = pdf_file.filename.replace(".pdf", "_compressed.pdf")
-
-        tools.clear_uploads_folder()
 
         return send_file(
             output_path,
@@ -99,6 +99,8 @@ def compress_pdf_route():
 @app.route("/pdf-to-word", methods=["POST"])
 def pdf_to_word_route():
     try:
+        tools.clear_uploads_folder()
+
         pdf_file = request.files.get("file")
         if not pdf_file:
             return jsonify({"error": "No file uploaded"}), 400
@@ -106,8 +108,6 @@ def pdf_to_word_route():
         path = tools.save_uploaded_files([pdf_file])[0]
         output_path = tools.pdf_to_word(path)
         converted_filename = pdf_file.filename.replace(".pdf", ".docx")
-
-        tools.clear_uploads_folder()
 
         return send_file(
             output_path,
@@ -124,6 +124,8 @@ def pdf_to_word_route():
 @app.route("/pdf-to-jpg", methods=["POST"])
 def pdf_to_jpg_route():
     try:
+        tools.clear_uploads_folder()
+
         pdf_file = request.files.get("file")
         if not pdf_file:
             return jsonify({"error": "No file uploaded"}), 400
@@ -131,8 +133,6 @@ def pdf_to_jpg_route():
         path = tools.save_uploaded_files([pdf_file])[0]
         zip_path = tools.pdf_to_jpg(path)
         converted_filename = pdf_file.filename.replace(".pdf", "_jpg.zip")
-
-        tools.clear_uploads_folder()
 
         return send_file(
             zip_path,
@@ -149,6 +149,8 @@ def pdf_to_jpg_route():
 @app.route("/edit", methods=["POST"])
 def edit_route():
     try:
+        tools.clear_uploads_folder()
+
         pdf_file = request.files.get("file")
         edit_type = request.form.get("editType")
         edit_data = request.form.get("editData")
@@ -175,8 +177,6 @@ def edit_route():
 
         output_path = tools.edit_pdf(path, edit_type, content, x, y)
         converted_filename = pdf_file.filename.replace(".pdf", "_edited.pdf")
-
-        tools.clear_uploads_folder()
 
         return send_file(
             output_path,
