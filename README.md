@@ -1,6 +1,6 @@
 # 📄 ConvertingPDF Server
 
-This is the **backend server** for the [ConvertingPDF web app](https://quick-doc-tool.onrender.com) — a tool that lets you merge, split, compress, edit, and convert PDF files to other formats.
+This is the **backend server** for the [ConvertingPDF web app](https://younes-alhyan.github.io/convertingpdf/) — a tool that lets you merge, split, compress, edit, and convert PDF files to other formats.
 
 The server is built with **Flask**, provides a REST API for PDF processing, and handles **user authentication**, **email verification**, and **conversion history tracking**.
 
